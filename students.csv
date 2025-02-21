@@ -1,0 +1,12 @@
+MSSV,Name,DOB,Gender,Department,Course,Program,Address,Email,Phone,Status
+22120001,Nguyen Van A,5/12/2000,Male,Khoa Luật,Luật dân sự,Đại trà,123 Street,nguyenvana@email.com,123456789,Đang học
+22120002,Tran Thi B,7/23/2001,Female,Khoa Tiếng Anh thương mại,Tiếng anh 1,CLC,456 Street,tranthib@email.com,987654321,Đã tốt nghiệp
+22120003,Le Hoang C,9/15/2002,Male,Khoa Luật,Luật hình sự,Đề án,789 Street,lehoangc@email.com,234567890,Đang học
+22120004,Pham Minh D,6/10/2001,Male,Khoa Tiếng Nhật,Tiếng Nhật 2,CLC,101 Street,phamminhd@email.com,345678901,Tạm dừng học
+22120005,Hoang Thi E,2/18/2000,Female,Khoa Tiếng Anh thương mại,Tiếng Anh thương mại 3,Đại trà,202 Street,hoangthie@email.com,456789012,Đã tốt nghiệp
+22120006,Nguyen Van F,11/5/2003,Male,Khoa Tiếng Pháp,Tiếng Pháp giao tiếp,CLC,303 Street,nguyenvanf@email.com,567890123,Đang học
+22120007,Tran Thi G,3/22/2002,Female,Khoa Luật,Luật quốc tế,Đề án,404 Street,tranthig@email.com,678901234,Đã thôi học
+22120008,Vu Hoang H,12/30/2000,Male,Khoa Tiếng Nhật,Tiếng Nhật thương mại,Đại trà,505 Street,vuchoangh@email.com,789012345,Đã tốt nghiệp
+22120009,Pham Thanh I,8/14/2001,Female,Khoa Tiếng Anh thương mại,Ngữ pháp tiếng Anh,CLC,606 Street,phamthani@email.com,890123456,Đang học
+22120010,Nguyen Quoc J,4/9/2002,Male,Khoa Tiếng Pháp,Tiếng Pháp chuyên sâu,Đề án,707 Street,nguyenquocj@email.com,901234567,Đã tốt nghiệp
+22120011,Le Thanh K,10/1/2003,Female,Khoa Luật,Luật kinh tế,Đại trà,808 Street,lethanhk@email.com,112233445,Đang học

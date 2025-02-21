@@ -1,6 +1,8 @@
 import java.io.*;
 import java.util.*;
 import java.util.regex.*;
+import java.util.logging.*;
+import org.json.*;
 
 class Student implements Serializable {
     private String id;
@@ -66,14 +68,165 @@ class Student implements Serializable {
     public String toString() {
         return "MSSV: " + id + ", Name: " + name + ", DOB: " + dob + ", Gender: " + gender + ", Department: " + department + ", Course: " + course + ", Program: " + program + ", Address: " + address + ", Email: " + email + ", Phone: " + phone + ", Status: " + status;
     }
+
+    public String toCSV() {
+        return String.join(",", id, name, dob, gender, department, course, program, address, email, phone, status);
+    }
+    public static Student fromCSV(String line) {
+        String[] data = line.split(",");
+        return new Student(data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10]);
+    }
+
+    public JSONObject toJSONObject() {
+        JSONObject obj = new JSONObject();
+        obj.put("MSSV", id);
+        obj.put("Name", name);
+        obj.put("DOB", dob);
+        obj.put("Gender", gender);
+        obj.put("Department", department);
+        obj.put("Course", course);
+        obj.put("Program", program);
+        obj.put("Address", address);
+        obj.put("Email", email);
+        obj.put("Phone", phone);
+        obj.put("Status", status);
+        return obj;
+    }
+
+    public static Student fromJSONObject(JSONObject obj) {
+        return new Student(
+            obj.getString("MSSV"), obj.getString("Name"), obj.getString("DOB"), obj.getString("Gender"),
+            obj.getString("Department"), obj.getString("Course"), obj.getString("Program"), obj.getString("Address"),
+            obj.getString("Email"), obj.getString("Phone"), obj.getString("Status")
+        );
+    }
+
+    public String toJSON() {
+        return new JSONObject(this).toString();
+    }
 }
 
 public class StudentManagement {
+    private static final Logger logger = Logger.getLogger(StudentManagement.class.getName());
     private static final List<Student> students = new ArrayList<>();
     private static final Scanner scanner = new Scanner(System.in);
+    private static final String FILE_PATH = "students.csv";
+    private static final String JSON_FILE_PATH = "students.json";
+    private static final String VERSION = "2.0";
+    private static final String BUILD_DATE = "2025-02-20";
     private static final List<String> GENDERS = Arrays.asList("Male", "Female", "Other");
     private static final List<String> DEPARTMENTS = Arrays.asList("Khoa Luật", "Khoa Tiếng Anh thương mại", "Khoa Tiếng Nhật", "Khoa Tiếng Pháp");
     private static final List<String> STATUSES = Arrays.asList("Đang học", "Đã tốt nghiệp", "Đã thôi học", "Tạm dừng học");
+
+    public static void loadFromCSV() {
+        try (BufferedReader br = new BufferedReader(new FileReader(FILE_PATH))) {
+            String line;
+            boolean isFirstLine = true;
+            while ((line = br.readLine()) != null) {
+                if (isFirstLine) { // Skip header line
+                    isFirstLine = false;
+                    continue;
+                }
+                students.add(Student.fromCSV(line));
+            }
+            logger.info("Data loaded successfully from " + FILE_PATH);
+        } catch (IOException e) {
+            logger.warning("No existing CSV data found or error reading file.");
+        }
+    }
+
+    public static void saveToCSV() {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(FILE_PATH))) {
+            bw.write("MSSV,Name,DOB,Gender,Department,Course,Program,Address,Email,Phone,Status");
+            bw.newLine();
+            for (Student student : students) {
+                bw.write(student.toCSV());
+                bw.newLine();
+            }
+            logger.info("Data saved successfully to " + FILE_PATH);
+        } catch (IOException e) {
+            logger.severe("Error saving data: " + e.getMessage());
+        }
+    }
+
+    public static void loadFromJSON() {
+        try (BufferedReader br = new BufferedReader(new FileReader(JSON_FILE_PATH))) {
+            StringBuilder jsonBuilder = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                jsonBuilder.append(line);
+            }
+            JSONArray jsonArray = new JSONArray(jsonBuilder.toString());
+            for (int i = 0; i < jsonArray.length(); i++) {
+                students.add(Student.fromJSONObject(jsonArray.getJSONObject(i)));
+            }
+            logger.info("Data loaded successfully from " + JSON_FILE_PATH);
+        } catch (IOException | JSONException e) {
+            logger.warning("No existing JSON data found or error reading file.");
+        }
+    }
+
+    public static void saveToJSON() {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(JSON_FILE_PATH))) {
+            JSONArray jsonArray = new JSONArray();
+            for (Student student : students) {
+                jsonArray.put(student.toJSONObject());
+            }
+            bw.write(jsonArray.toString(4));
+            logger.info("Data saved successfully to " + JSON_FILE_PATH);
+        } catch (IOException e) {
+            logger.severe("Error saving JSON data: " + e.getMessage());
+        }
+    }
+
+    private static void importFromJSON(String filePath) throws IOException, JSONException {
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            StringBuilder jsonBuilder = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                jsonBuilder.append(line);
+            }
+            JSONArray jsonArray = new JSONArray(jsonBuilder.toString());
+            for (int i = 0; i < jsonArray.length(); i++) {
+                Student newStudent = Student.fromJSONObject(jsonArray.getJSONObject(i));
+                if (!isStudentExists(newStudent.getId())) {
+                    students.add(newStudent);
+                }
+            }
+            logger.info("Data imported successfully from JSON file: " + filePath);
+        }
+    }
+
+    private static void importFromCSV(String filePath) throws IOException {
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            br.readLine(); // Skip header
+            while ((line = br.readLine()) != null) {
+                String[] values = line.split(",");
+                if (values.length == 11) {
+                    Student newStudent = new Student(values[0], values[1], values[2], values[3], values[4], values[5],
+                        values[6], values[7], values[8], values[9], values[10]);
+                    if (!isStudentExists(newStudent.getId())) {
+                        students.add(newStudent);
+                    }
+                }
+            }
+            logger.info("Data imported successfully from CSV file: " + filePath);
+        }
+    }
+
+    private static boolean isStudentExists(String id) {
+        for (Student student : students) {
+            if (student.getId().equals(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static void showVersion() {
+        System.out.println("Student Management System - Version: " + VERSION + " - Build Date: " + BUILD_DATE);
+    }
 
     private static boolean isValidEmail(String email) {
         return email.matches("^[\\w-\\.+]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$");
@@ -91,7 +244,7 @@ public class StudentManagement {
         System.out.print("Name: ");
         String name = scanner.nextLine();
 
-        System.out.print("DOB (yyyy-mm-dd): ");
+        System.out.print("DOB (dd-mm-yy): ");
         String dob = scanner.nextLine();
 
         System.out.println("Select Gender:");
@@ -162,65 +315,36 @@ public class StudentManagement {
         String id = scanner.nextLine();
         for (Student student : students) {
             if (student.getId().equals(id)) {
-                System.out.print("New Name (leave blank to keep unchanged): ");
-                String name = scanner.nextLine();
-                if (!name.isBlank()) student.setName(name);
-
-                System.out.print("New DOB (leave blank to keep unchanged): ");
-                String dob = scanner.nextLine();
-                if (!dob.isBlank()) student.setDob(dob);
-
-                System.out.println("Select New Gender (leave blank to keep unchanged):");
-                for (int i = 0; i < GENDERS.size(); i++) {
-                    System.out.println((i + 1) + ". " + GENDERS.get(i));
+                boolean updating = true;
+                while (updating) {
+                    System.out.println("Select the field to update:");
+                    System.out.println("1. Name\n2. DOB\n3. Gender\n4. Department\n5. Course\n6. Program\n7. Address\n8. Email\n9. Phone\n10. Status\n11. Exit");
+                    System.out.print("Choose an option: ");
+                    int choice = Integer.parseInt(scanner.nextLine());
+                    
+                    if (choice == 11) {
+                        updating = false;
+                        break;
+                    }
+                    
+                    System.out.print("Enter new value: ");
+                    String newValue = scanner.nextLine();
+                    
+                    switch (choice) {
+                        case 1 -> student.setName(newValue);
+                        case 2 -> student.setDob(newValue);
+                        case 3 -> student.setGender(GENDERS.contains(newValue) ? newValue : student.getGender());
+                        case 4 -> student.setDepartment(DEPARTMENTS.contains(newValue) ? newValue : student.getDepartment());
+                        case 5 -> student.setCourse(newValue);
+                        case 6 -> student.setProgram(newValue);
+                        case 7 -> student.setAddress(newValue);
+                        case 8 -> { if (isValidEmail(newValue)) student.setEmail(newValue); }
+                        case 9 -> { if (isValidPhone(newValue)) student.setPhone(newValue); }
+                        case 10 -> student.setStatus(STATUSES.contains(newValue) ? newValue : student.getStatus());
+                        default -> System.out.println("Invalid option.");
+                    }
+                    System.out.println("Field updated successfully.");
                 }
-                String genderInput = scanner.nextLine();
-                if (!genderInput.isBlank()) {
-                    int genderChoice = Integer.parseInt(genderInput) - 1;
-                    student.setGender(GENDERS.get(genderChoice));
-                }
-
-                System.out.println("Select New Department (leave blank to keep unchanged):");
-                for (int i = 0; i < DEPARTMENTS.size(); i++) {
-                    System.out.println((i + 1) + ". " + DEPARTMENTS.get(i));
-                }
-                String departmentInput = scanner.nextLine();
-                if (!departmentInput.isBlank()) {
-                    int departmentChoice = Integer.parseInt(departmentInput) - 1;
-                    student.setDepartment(DEPARTMENTS.get(departmentChoice));
-                }
-
-                System.out.print("New Course (leave blank to keep unchanged): ");
-                String course = scanner.nextLine();
-                if (!course.isBlank()) student.setCourse(course);
-
-                System.out.print("New Program (leave blank to keep unchanged): ");
-                String program = scanner.nextLine();
-                if (!program.isBlank()) student.setProgram(program);
-
-                System.out.print("New Address (leave blank to keep unchanged): ");
-                String address = scanner.nextLine();
-                if (!address.isBlank()) student.setAddress(address);
-
-                System.out.print("New Email (leave blank to keep unchanged): ");
-                String email = scanner.nextLine();
-                if (!email.isBlank() && isValidEmail(email)) student.setEmail(email);
-
-                System.out.print("New Phone (leave blank to keep unchanged): ");
-                String phone = scanner.nextLine();
-                if (!phone.isBlank() && isValidPhone(phone)) student.setPhone(phone);
-
-                System.out.println("Select New Status (leave blank to keep unchanged):");
-                for (int i = 0; i < STATUSES.size(); i++) {
-                    System.out.println((i + 1) + ". " + STATUSES.get(i));
-                }
-                String statusInput = scanner.nextLine();
-                if (!statusInput.isBlank()) {
-                    int statusChoice = Integer.parseInt(statusInput) - 1;
-                    student.setStatus(STATUSES.get(statusChoice));
-                }
-
-                System.out.println("Student updated successfully.");
                 return;
             }
         }
@@ -232,23 +356,112 @@ public class StudentManagement {
             System.out.println("No data.");
             return;
         }
-        System.out.print("Enter Name or MSSV to search: ");
-        String query = scanner.nextLine().toLowerCase();
-        for (Student student : students) {
-            if (student.getId().toLowerCase().contains(query) || student.getName().toLowerCase().contains(query)) {
-                System.out.println(student);
+        System.out.println("Search options:");
+        System.out.println("1. Search by MSSV or Name");
+        System.out.println("2. Search by Department");
+        System.out.println("3. Search by Department + Name");
+        System.out.print("Choose an option: ");
+        int choice = Integer.parseInt(scanner.nextLine());
+        
+        switch (choice) {
+            case 1 -> {
+                System.out.print("Enter Name or MSSV to search: ");
+                String query = scanner.nextLine().toLowerCase();
+                students.stream()
+                        .filter(s -> s.getId().toLowerCase().contains(query) || s.getName().toLowerCase().contains(query))
+                        .forEach(System.out::println);
             }
+            case 2 -> {
+                System.out.println("Select Department:");
+                for (int i = 0; i < DEPARTMENTS.size(); i++) {
+                    System.out.println((i + 1) + ". " + DEPARTMENTS.get(i));
+                }
+                int departmentChoice = Integer.parseInt(scanner.nextLine()) - 1;
+                if (departmentChoice >= 0 && departmentChoice < DEPARTMENTS.size()) {
+                    String department = DEPARTMENTS.get(departmentChoice);
+                    students.stream()
+                            .filter(s -> s.getDepartment().equals(department))
+                            .forEach(System.out::println);
+                }
+            }
+            case 3 -> {
+                System.out.println("Select Department:");
+                for (int i = 0; i < DEPARTMENTS.size(); i++) {
+                    System.out.println((i + 1) + ". " + DEPARTMENTS.get(i));
+                }
+                int departmentChoice = Integer.parseInt(scanner.nextLine()) - 1;
+                if (departmentChoice >= 0 && departmentChoice < DEPARTMENTS.size()) {
+                    String department = DEPARTMENTS.get(departmentChoice);
+                    System.out.print("Enter Name to search: ");
+                    String nameQuery = scanner.nextLine().toLowerCase();
+                    students.stream()
+                            .filter(s -> s.getDepartment().equals(department) && s.getName().toLowerCase().contains(nameQuery))
+                            .forEach(System.out::println);
+                }
+            }
+            default -> System.out.println("Invalid option.");
         }
     }
 
+    public static void exportData() {
+        System.out.println("Choose export format: 1. CSV  2. JSON");
+        int choice = scanner.nextInt();
+        scanner.nextLine(); 
+        if (choice == 1) {
+            saveToCSV();
+            System.out.println("Data exported to CSV successfully.");
+        } else if (choice == 2) {
+            saveToJSON();
+            System.out.println("Data exported to JSON successfully.");
+        } else {
+            System.out.println("Invalid choice. No data exported.");
+        }
+    }
+
+    public static void importData() {
+        System.out.println("Choose file type to import:");
+        System.out.println("1. CSV");
+        System.out.println("2. JSON");
+        System.out.print("Enter your choice: ");
+        String choice = scanner.nextLine();
+    
+        String fileType = "";
+        if (choice.equals("1")) {
+            fileType = "csv";
+        } else if (choice.equals("2")) {
+            fileType = "json";
+        } else {
+            System.out.println("Invalid choice.");
+            return;
+        }
+    
+        System.out.print("Enter file path: ");
+        String filePath = scanner.nextLine();
+    
+        try {
+            if (fileType.equals("json")) {
+                importFromJSON(filePath);
+            } else if (fileType.equals("csv")) {
+                importFromCSV(filePath);
+            }
+        } catch (Exception e) {
+            logger.severe("Error importing data: " + e.getMessage());
+        }
+    }
+    
     public static void main(String[] args) {
+        logger.info("Application started.");
+        showVersion();
+        loadFromCSV();
         while (true) {
             System.out.println("\nStudent Management System");
             System.out.println("1. Add Student");
             System.out.println("2. Delete Student");
             System.out.println("3. Update Student");
             System.out.println("4. Search Student");
-            System.out.println("5. Exit");
+            System.out.println("5. Export file");
+            System.out.println("6. Import file");
+            System.out.println("7. Exit");
             System.out.print("Choose an option: ");
             int choice = Integer.parseInt(scanner.nextLine());
 
@@ -257,7 +470,11 @@ public class StudentManagement {
                 case 2 -> deleteStudent();
                 case 3 -> updateStudent();
                 case 4 -> searchStudent();
-                case 5 -> {
+                case 5 -> exportData();
+                case 6 -> importData();
+                case 7 -> {
+                    saveToCSV();
+                    logger.info("Application exited.");
                     System.out.println("Exiting program.");
                     return;
                 }
