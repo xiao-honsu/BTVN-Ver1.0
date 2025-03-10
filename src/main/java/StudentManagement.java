@@ -134,7 +134,7 @@ public class StudentManagement {
     private static final Scanner scanner = new Scanner(System.in);
     private static final String FILE_PATH = "students.csv";
     private static final String JSON_FILE_PATH = "students.json";   
-    private static final String VERSION = "2.0";
+    private static final String VERSION = "3.0";
     private static final LocalDateTime BUILD_DATE = LocalDateTime.now();
     private static final List<String> GENDERS = Arrays.asList("Male", "Female", "Other");
     private static final List<String> DEPARTMENTS = Arrays.asList("Khoa Luật", "Khoa Tiếng Anh thương mại", "Khoa Tiếng Nhật", "Khoa Tiếng Pháp", "None");
