@@ -8,6 +8,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.Duration;
 import java.time.LocalDate;
 import org.json.*;
+import org.apache.poi.xwpf.usermodel.*;
+import org.apache.pdfbox.pdmodel.*;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
 
 class Student implements Serializable {
     private String id;
@@ -94,7 +97,6 @@ class Student implements Serializable {
         } else {
             createdDate = LocalDateTime.now();
         }
-    
         return new Student(data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10], createdDate);
     }
     
@@ -134,12 +136,16 @@ public class StudentManagement {
     private static final Scanner scanner = new Scanner(System.in);
     private static final String FILE_PATH = "students.csv";
     private static final String JSON_FILE_PATH = "students.json";   
-    private static final String VERSION = "3.0";
+    private static final String VERSION = "4.0";
     private static final LocalDateTime BUILD_DATE = LocalDateTime.now();
     private static final List<String> GENDERS = Arrays.asList("Male", "Female", "Other");
     private static final List<String> DEPARTMENTS = Arrays.asList("Khoa Luật", "Khoa Tiếng Anh thương mại", "Khoa Tiếng Nhật", "Khoa Tiếng Pháp", "None");
     private static final List<String> PROGRAMS = Arrays.asList("Đại trà", "Đề án", "CLC", "None");
     private static final List<String> STATUSES = Arrays.asList("Đang học", "Đã tốt nghiệp", "Đã thôi học","Bảo lưu","Đình chỉ", "None");
+    private static String formatEmail = "Off";
+    private static String formatPhoneNumber = "Off";
+    private static String statusRule = "Off";
+    private static String deleteStudentRule = "Off";
     
     public static List<Student> getStudents() {
         return students;
@@ -168,7 +174,7 @@ public class StudentManagement {
             bw.write("MSSV,Name,DOB,Gender,Department,Course,Program,Address,Email,Phone,Status,createDate");
             bw.newLine();
             for (Student student : students) {
-                bw.write(student.toCSV());
+                bw.write(student.toCSV().trim());
                 bw.newLine();
             }
             logger.info("Data saved successfully to " + FILE_PATH);
@@ -264,13 +270,16 @@ public class StudentManagement {
         if (!email.matches(emailRegex)) {
             return false;
         }
-
+        if (formatEmail.equals("Off"))
+        	return true;
         return email.endsWith(ALLOWED_DOMAIN);
     }
 
 
     public static boolean isValidPhone(String phone) {
         String vietnamPhoneRegex = "^(\\+84|0)(3|5|7|8|9)\\d{8}$";
+        if (formatPhoneNumber.equals("Off"))
+        	return phone.matches("\\d{10}");
         return phone.matches(vietnamPhoneRegex);
     }
     
@@ -372,16 +381,24 @@ public class StudentManagement {
     }
 
     public static boolean processDeleteStudent(String id) {
+    	boolean removed = false;
+    	
+    	if (deleteStudentRule.equals("Off")) {
+            students.removeIf(student -> student.getId().equals(id));
+            removed= true;
+    	}
+    	else {
         LocalDateTime now = LocalDateTime.now();
-        boolean removed = students.removeIf(student ->
+        removed = students.removeIf(student ->
             student.getId().equals(id) && 
             Duration.between(student.getCreatedDate(), now).toMinutes() <= 30
         );
-    
+    	}
+    	
         if (removed) {
             System.out.println("Student deleted successfully.");
         } else {
-            System.out.println("Cannot delete. Student not found or creation time exceeds 30 minutes.");
+            System.out.println("Cannot delete.");
         }
         return removed;
     }
@@ -450,23 +467,39 @@ public class StudentManagement {
                             System.out.println("Invalid choice.");
                         }
                     } else if (choice == 11) {
-                        List<String> validStatuses = getValidStatusOptions(student.getStatus());
-                        if (validStatuses.isEmpty()) {
-                            System.out.println("Status cannot be changed from '" + student.getStatus() + "'.");
-                            continue;
-                        }
-                        System.out.println("Select new Status:");
-                        for (int i = 0; i < validStatuses.size(); i++) {
-                            System.out.println((i + 1) + ". " + validStatuses.get(i));
-                        }
-                        System.out.print("Choose an option: ");
-                        int statusChoice = Integer.parseInt(scanner.nextLine()) - 1;
-                        if (statusChoice >= 0 && statusChoice < validStatuses.size()) {
-                            updateStudentField(student, choice, validStatuses.get(statusChoice));
-                            System.out.println("Status updated successfully.");
-                        } else {
-                            System.out.println("Invalid choice.");
-                        }
+                    	if (statusRule.equals("On")) {
+	                        List<String> validStatuses = getValidStatusOptions(student.getStatus());
+	                        if (validStatuses.isEmpty()) {
+	                            System.out.println("Status cannot be changed from '" + student.getStatus() + "'.");
+	                            continue;
+	                        }
+	                        System.out.println("Select new Status:");
+	                        for (int i = 0; i < validStatuses.size(); i++) {
+	                            System.out.println((i + 1) + ". " + validStatuses.get(i));
+	                        }
+	                        System.out.print("Choose an option: ");
+	                        int statusChoice = Integer.parseInt(scanner.nextLine()) - 1;
+	                        if (statusChoice >= 0 && statusChoice < validStatuses.size()) {
+	                            updateStudentField(student, choice, validStatuses.get(statusChoice));
+	                            System.out.println("Status updated successfully.");
+	                        } else {
+	                            System.out.println("Invalid choice.");
+	                        }
+                    	} else {
+                    		System.out.println("Select new Status:");
+                    		for (int i = 0; i < STATUSES.size(); i++) {
+	                            System.out.println((i + 1) + ". " + STATUSES.get(i));
+	                        }
+                    		System.out.print("Choose an option: ");
+	                        int statusChoice = Integer.parseInt(scanner.nextLine()) - 1;
+	                        if (statusChoice >= 0 && statusChoice < STATUSES.size()) {
+	                            updateStudentField(student, choice, STATUSES.get(statusChoice));
+	                            System.out.println("Status updated successfully.");
+	                        } else {
+	                            System.out.println("Invalid choice.");
+	                        }
+
+                    	}
                     } else {
                         System.out.print("Enter new value: ");
                         String newValue = scanner.nextLine();
@@ -696,8 +729,256 @@ public class StudentManagement {
 }
 
 
+    public static void configurateSetting() {
+        boolean configurating = true;
+        while (configurating) {
+            System.out.println("Select the field to update:");
+            System.out.println("1. Turn on/off email format (currently " + formatEmail + ")");
+            System.out.println("2. Turn on/off phone number format (currently " + formatPhoneNumber + ")");
+            System.out.println("3. Turn on/off status rule (currently " + statusRule + ")");
+            System.out.println("4. Turn on/off delete student rule (currently " + deleteStudentRule + ")");
+            System.out.println("5. Exit");
+
+            System.out.print("Choose an option: ");
+            int choice = Integer.parseInt(scanner.nextLine());
+
+            switch (choice) {
+                case 1 -> formatEmail = turnFormatOrRule(formatEmail);
+                case 2 -> formatPhoneNumber = turnFormatOrRule(formatPhoneNumber);
+                case 3 -> statusRule = turnFormatOrRule(statusRule);
+                case 4 -> deleteStudentRule = turnFormatOrRule(deleteStudentRule);
+                case 5 -> configurating = false;
+                default -> System.out.println("Invalid choice");
+            }
+        }
+    }
+
+    public static String turnFormatOrRule(String rule) {
+        return rule.equals("On") ? "Off" : "On";
+    }
+
     
+    public static void exportStudentConfirmation() {
+        Scanner scanner = new Scanner(System.in);
+
+    	System.out.println("\nUniversity of Social Sciences and Humanities - Exporting Student Confirmation");
+        System.out.print("Enter MSSV of the student to export: ");
+        String id = scanner.nextLine();
+        
+        for (Student student : students) {
+        	if (student.getId().equals(id)) {
+        		System.out.println("Chọn tình trạng sinh viên:");
+                List<String> statuses = List.of("Đang theo học", "Đã hoàn thành chương trình, chờ xét tốt nghiệp", "Đã tốt nghiệp", "Bảo lưu", "Đình chỉ học tập", "Tình trạng khác");
+                for (int i = 0; i < statuses.size(); i++) {
+                    System.out.println((i + 1) + ". " + statuses.get(i));
+                }
+                int statusChoice = Integer.parseInt(scanner.nextLine()) - 1;
+                String studentStatus = statuses.get(statusChoice);
+                
+                System.out.println("Chọn mục đích xác nhận:");
+                List<String> purposes = List.of("Xác nhận đang học để vay vốn ngân hàng", "Xác nhận làm thủ tục tạm hoãn nghĩa vụ quân sự", "Xác nhận làm hồ sơ xin việc / thực tập", "Xác nhận lý do khác");
+                for (int i = 0; i < purposes.size(); i++) {
+                    System.out.println((i + 1) + ". " + purposes.get(i));
+                }
+                int purposeChoice = Integer.parseInt(scanner.nextLine()) - 1;
+                String confirmationPurpose = purposes.get(purposeChoice);
+                if (purposeChoice == purposes.size() - 1) {
+                    System.out.print("Nhập lý do khác: ");
+                    confirmationPurpose = scanner.nextLine();
+                }
+                
+                LocalDate issueDate = LocalDate.now();
+                LocalDate validUntil = issueDate.plusMonths(6); 
+                
+                System.out.println("Chọn định dạng xuất (1. Word, 2. PDF): ");
+                int formatChoice = Integer.parseInt(scanner.nextLine());
+                
+                if (formatChoice == 1) {
+                    exportToWord(student, studentStatus, confirmationPurpose, issueDate, validUntil);
+                } else {
+                    exportToPdf(student, studentStatus, confirmationPurpose, issueDate, validUntil);
+                }
+        	}
+        }
+        
+    }
     
+    private static void exportToWord(Student student, String status, String purpose, LocalDate issueDate, LocalDate validUntil) {
+        try (XWPFDocument document = new XWPFDocument()) {
+            XWPFParagraph title = document.createParagraph();
+            title.setAlignment(ParagraphAlignment.CENTER);
+            XWPFRun titleRun = title.createRun();
+            titleRun.setBold(true);
+            titleRun.setFontSize(20);
+            titleRun.setText("GIẤY XÁC NHẬN TÌNH TRẠNG SINH VIÊN");
+            titleRun.addBreak();
+            titleRun.setFontSize(16);
+            titleRun.setText("HIỆU TRƯỞNG TRƯỜNG ĐẠI HỌC KHOA HỌC XÃ HỘI VÀ NHÂN VĂN CHỨNG NHẬN");
+            titleRun.addBreak();
+
+            XWPFParagraph body = document.createParagraph();
+            XWPFRun boldRun;
+            XWPFRun bodyRun;
+
+            boldRun = body.createRun();
+            boldRun.setBold(true);
+            boldRun.setText("Thông tin sinh viên:");
+            boldRun.addBreak();
+            
+            bodyRun = body.createRun();
+            bodyRun.setText("- Họ và tên: " + student.getName());
+            bodyRun.addBreak();
+            bodyRun.setText("- Mã số sinh viên: " + student.getId());
+            bodyRun.addBreak();
+            bodyRun.setText("- Ngày sinh: " + student.getDob());
+            bodyRun.addBreak();
+            bodyRun.setText("- Giới tính: " + student.getGender());
+            bodyRun.addBreak();
+            bodyRun.setText("- Khoa: " + student.getDepartment());
+            bodyRun.addBreak();
+            bodyRun.setText("- Chương trình đào tạo: " + student.getProgram());
+            bodyRun.addBreak();
+            bodyRun.setText("- Khóa: " + student.getCourse());
+            bodyRun.addBreak();
+
+            boldRun = body.createRun();
+            boldRun.setBold(true);
+            boldRun.setText("Tình trạng sinh viên hiện tại: ");
+            bodyRun = body.createRun();
+            bodyRun.setText(status);
+            bodyRun.addBreak();
+
+            boldRun = body.createRun();
+            boldRun.setBold(true);
+            boldRun.setText("Mục đích xác nhận: ");
+            bodyRun = body.createRun();
+            bodyRun.setText(purpose);
+            bodyRun.addBreak();
+
+            boldRun = body.createRun();
+            boldRun.setBold(true);
+            boldRun.setText("Thời gian cấp giấy:");
+            bodyRun = body.createRun();
+            bodyRun.addBreak();
+            bodyRun.setText("- Ngày cấp: " + issueDate);
+            bodyRun.addBreak();
+            bodyRun.setText("- Giấy có hiệu lực đến ngày: " + validUntil);
+            bodyRun.addBreak();
+
+            XWPFParagraph sign = document.createParagraph();
+            sign.setAlignment(ParagraphAlignment.RIGHT);
+            XWPFRun signRun = sign.createRun();
+            signRun.setText("TL. HIỆU TRƯỞNG");
+            signRun.addBreak();
+            signRun.setText("TRƯỞNG PHÒNG ĐÀO TẠO");
+            signRun.addBreak();
+            signRun.addBreak();
+            signRun.addBreak();
+            signRun.setText("(Ký, ghi rõ họ tên, đóng dấu)");
+
+            String fileName = "Student_Certificate_" + student.getId() + ".docx";
+            try (FileOutputStream out = new FileOutputStream(fileName)) {
+                document.write(out);
+                System.out.println("Xuất file thành công: " + fileName);
+            }
+        } catch (IOException e) {
+            System.out.println("Lỗi khi xuất file Word: " + e.getMessage());
+        }
+    }
+
+    private static void exportToPdf(Student student, String status, String purpose, LocalDate issueDate, LocalDate validUntil) {
+        String fileName = "Student_Certificate_" + student.getId() + ".pdf";
+        try (PDDocument document = new PDDocument()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            float pageWidth = page.getMediaBox().getWidth();
+            
+            InputStream fontStreamRegular = StudentManagement.class.getClassLoader().getResourceAsStream("fonts/arial.otf");
+            PDType0Font fontRegular = PDType0Font.load(document, fontStreamRegular);
+            
+            InputStream fontStreamBold = StudentManagement.class.getClassLoader().getResourceAsStream("fonts/arial-bold.otf");
+            PDType0Font fontBold = PDType0Font.load(document, fontStreamBold);
+            
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.beginText();
+                
+                // Căn giữa tiêu đề
+                contentStream.setFont(fontBold, 16);
+                float titleWidth = fontBold.getStringWidth("GIẤY XÁC NHẬN TÌNH TRẠNG SINH VIÊN") / 1000 * 16;
+                contentStream.newLineAtOffset((pageWidth - titleWidth) / 2, 700);
+
+                contentStream.showText("GIẤY XÁC NHẬN TÌNH TRẠNG SINH VIÊN");
+                contentStream.newLineAtOffset(0, -20);
+                
+                // Nội dung chính
+                contentStream.setFont(fontRegular, 12);
+                titleWidth = (fontBold.getStringWidth("HIỆU TRƯỞNG TRƯỜNG ĐẠI HỌC KHOA HỌC XÃ HỘI VÀ NHÂN VĂN CHỨNG NHẬN") / 650) * 12;
+                contentStream.newLineAtOffset((pageWidth - titleWidth) / 2, -20);
+                contentStream.showText("HIỆU TRƯỞNG TRƯỜNG ĐẠI HỌC KHOA HỌC XÃ HỘI VÀ NHÂN VĂN CHỨNG NHẬN");
+
+                contentStream.newLineAtOffset(0, -40);
+                
+                contentStream.setFont(fontBold, 12);
+                contentStream.showText("Thông tin sinh viên:");
+                contentStream.newLineAtOffset(0, -20);
+                
+                contentStream.setFont(fontRegular, 12);
+                contentStream.showText("- Họ và tên: " + student.getName());
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("- Mã số sinh viên: " + student.getId());
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("- Ngày sinh: " + student.getDob());
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("- Giới tính: " + student.getGender());
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("- Khoa: " + student.getDepartment());
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("- Chương trình đào tạo: " + student.getProgram());
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("- Khóa: " + student.getCourse());
+                contentStream.newLineAtOffset(0, -40);
+                
+                contentStream.setFont(fontBold, 12);
+                contentStream.showText("Tình trạng sinh viên hiện tại: ");
+                contentStream.setFont(fontRegular, 12);
+                contentStream.showText(status);
+                contentStream.newLineAtOffset(0, -20);
+                
+                contentStream.setFont(fontBold, 12);
+                contentStream.showText("Mục đích xác nhận: ");
+                contentStream.setFont(fontRegular, 12);
+                contentStream.showText(purpose);
+                contentStream.newLineAtOffset(0, -20);
+                
+                contentStream.setFont(fontBold, 12);
+                contentStream.showText("Thời gian cấp giấy:");
+                contentStream.newLineAtOffset(0, -20);
+                
+                contentStream.setFont(fontRegular, 12);
+                contentStream.showText("- Ngày cấp: " + issueDate);
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("- Giấy có hiệu lực đến ngày: " + validUntil);
+                contentStream.newLineAtOffset(0, -40);
+                
+                // Căn phải phần ký tên
+                contentStream.setFont(fontBold, 12);
+                float signWidth = fontBold.getStringWidth("TRƯỞNG PHÒNG ĐÀO TẠO") / 1000 * 12;
+                contentStream.newLineAtOffset(pageWidth - signWidth - 100, 0);
+                contentStream.showText("TL. HIỆU TRƯỞNG");
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("TRƯỞNG PHÒNG ĐÀO TẠO");
+                contentStream.newLineAtOffset(0, -40);
+                contentStream.showText("(Ký, ghi rõ họ tên, đóng dấu)");
+                
+                contentStream.endText();
+            }
+            
+            document.save(fileName);
+            System.out.println("Xuất file PDF thành công: " + fileName);
+        } catch (IOException e) {
+            System.out.println("Lỗi khi xuất file PDF: " + e.getMessage());
+        }
+    }
     
     public static void main(String[] args) {
         logger.info("Application started.");
@@ -713,7 +994,9 @@ public class StudentManagement {
             System.out.println("4. Search Student");
             System.out.println("5. Export file");
             System.out.println("6. Import file");
-            System.out.println("7. Exit");
+            System.out.println("7. Configuration setting");
+            System.out.println("8. Exporting Student confirmation");
+            System.out.println("9. Exit");
             System.out.print("Choose an option: ");
             int choice = Integer.parseInt(scanner.nextLine());
 
@@ -724,7 +1007,9 @@ public class StudentManagement {
                 case 4 -> searchStudent();
                 case 5 -> exportData();
                 case 6 -> importData();
-                case 7 -> {
+                case 7 -> configurateSetting();
+                case 8 -> exportStudentConfirmation();
+                case 9 -> {
                     saveToCSV();
                     logger.info("Application exited.");
                     System.out.println("Exiting program.");
